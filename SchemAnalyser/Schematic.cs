@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using g3;
 using NbtToolkit;
 using NbtToolkit.Binary;
 
@@ -9,12 +10,18 @@ namespace SchemAnalyser
     {
         public List<TagCompound> ExtraBlockData { get; set; }
         public List<BlockState> BlockPallete { get; set; }
-        public List<Ship> Ships { get; set; }
+        public List<ShipGrid> ShipGrids { get; set; }
+
+        public void Visit(ISchematicVisitor visitor)
+        {
+            visitor.Visit(this);
+            foreach(var block in ShipGrids) visitor.VisitShipGrid(block);
+        }
 
         public static Schematic FromStream(Stream stream)
         {
             var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
-            string str = ReadUtf(reader, 400);
+            var str = ReadUtf(reader, 400);
 
             Console.WriteLine(str);
 
@@ -24,38 +31,38 @@ namespace SchemAnalyser
             
             using (var gzipStream = new GZipStream(stream, CompressionMode.Decompress))
             {
-                NbtReader nbt_reader = new NbtReader(gzipStream);
+                var nbt_reader = new NbtReader(gzipStream);
 
                 var rootTag = nbt_reader.ReadRootTag();
 
-                List<BlockState> blockStates = new List<BlockState>();
+                var blockStates = new List<BlockState>();
 
                 foreach (var entry in rootTag["blockPalette"].AsTagList<TagCompound>())
                 {
-                    var Properties = new Dictionary<string, string>();
+                    var properties = new Dictionary<string, string>();
                     if (entry.ContainsKey("Properties"))
                     {
                         foreach (var prop in entry["Properties"].AsTagCompound())
                         {
-                            Properties[prop.Key] = prop.Value.AsString();
+                            properties[prop.Key] = prop.Value.AsString();
                         }
                     }
 
                     blockStates.Add(new BlockState()
                     {
                         Name = entry["Name"].AsString(),
-                        Properties = Properties
+                        Properties = properties
                     });
                 }
 
-                List<Ship> ships = new List<Ship>();
+                var shipGrids = new List<ShipGrid>();
 
                 foreach (var entry in rootTag["gridData"].AsTagCompound())
                 {
-                    List<Ship.BlockEntry> blocks = new List<Ship.BlockEntry>();
+                    var blocks = new List<ShipGrid.BlockEntry>();
                     foreach (var data in entry.Value.AsTagList<TagCompound>())
                     {
-                        blocks.Add(new Ship.BlockEntry()
+                        blocks.Add(new ShipGrid.BlockEntry()
                         {
                             x = data["x"].AsInt(),
                             y = data["y"].AsInt(),
@@ -65,37 +72,35 @@ namespace SchemAnalyser
                         });
                     }
 
-                    ships.Add(new Ship() { Id = entry.Key, Blocks = blocks });
+                    shipGrids.Add(new ShipGrid() { Id = entry.Key, Blocks = blocks });
                 }
 
-                List<TagCompound> extraBlocks = new List<TagCompound>();
+                var extraBlocks = new List<TagCompound>();
 
                 foreach (var entry in rootTag["extraBlockData"].AsTagList<TagCompound>())
                 {
                     extraBlocks.Add(entry);
                 }
 
-                Schematic schema = new Schematic()
+                var schema = new Schematic()
                 {
                     BlockPallete = blockStates,
-                    Ships = ships,
+                    ShipGrids = shipGrids,
                     ExtraBlockData = extraBlocks
                 };
-
-
+                
                 return schema;
             }
         }
-        
         public static int ReadVarInt(BinaryReader reader)
         {
-            int numRead = 0;
-            int result = 0;
+            var numRead = 0;
+            var result = 0;
             byte read;
             do
             {
                 read = reader.ReadByte();
-                int value = (read & 0b01111111);
+                var value = (read & 0b01111111);
                 result |= (value << (7 * numRead));
 
                 numRead++;
@@ -108,27 +113,22 @@ namespace SchemAnalyser
 
         public static string ReadUtf(BinaryReader reader, int maxLength)
         {
-            int j = ReadVarInt(reader);
-            int i = GetMaxEncodedUtfLength(maxLength);
+            var j = ReadVarInt(reader);
+            var i = GetMaxEncodedUtfLength(maxLength);
 
             if (j > i)
                 throw new InvalidDataException($"Encoded string length {j} > max {i}");
             if (j < 0)
                 throw new InvalidDataException("Encoded string length < 0");
 
-            byte[] bytes = reader.ReadBytes(j);
-            string s = Encoding.UTF8.GetString(bytes);
+            var bytes = reader.ReadBytes(j);
+            var s = Encoding.UTF8.GetString(bytes);
 
-            if (s.Length > maxLength)
-                throw new InvalidDataException($"Decoded string length {s.Length} > max {maxLength}");
-
-            return s;
+            return s.Length > maxLength ? throw new InvalidDataException($"Decoded string length {s.Length} > max {maxLength}") : s;
         }
 
         private static int GetMaxEncodedUtfLength(int value)
         {
-            // Minecraft использует этот метод:
-            // ceil(value * 3) (максимум UTF-8 байт на символ)
             return (int)Math.Ceiling(value * 3.0);
         }
     }
@@ -139,7 +139,7 @@ namespace SchemAnalyser
         public string Name { get; set; }
 
     }
-    public class Ship
+    public class ShipGrid
     {
         public class BlockEntry
         {
@@ -153,6 +153,7 @@ namespace SchemAnalyser
 
         public string Id { get; set; }
         public List<BlockEntry> Blocks { get; set; }
+        public AxisAlignedBox3d aabb { get; set; }
     }
     
     

@@ -15,7 +15,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="geometry3Sharp" Version="1.0.324" />
       <PackageReference Include="NbtToolkit" Version="0.1.2-beta" />
+      <PackageReference Include="Sharp3D.Math" Version="1.0.3" />
     </ItemGroup>
 
 </Project>
