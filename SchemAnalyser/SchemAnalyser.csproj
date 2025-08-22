@@ -12,11 +12,17 @@
       <Content Include="..\.dockerignore">
         <Link>.dockerignore</Link>
       </Content>
+      <EmbeddedResource Include="assets\minecraft\models\cube.json" />
+      <EmbeddedResource Include="Shaders\**\*.*" />
+      <EmbeddedResource Include="Models\**\*.*" />
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="geometry3Sharp" Version="1.0.324" />
       <PackageReference Include="NbtToolkit" Version="0.1.2-beta" />
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.4-beta1" />
+      <PackageReference Include="OpenTK" Version="5.0.0-pre.14" />
+      <PackageReference Include="OpenTK.Platform" Version="5.0.0-pre.14" />
       <PackageReference Include="Sharp3D.Math" Version="1.0.3" />
     </ItemGroup>
 

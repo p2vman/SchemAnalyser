@@ -7,6 +7,7 @@ public interface ISchematicVisitor
 {
     void Visit(Schematic schematic);
     void VisitShipGrid(ShipGrid ships);
+    void VisitEntity(EntityItem entityItem);
 }
 
 public interface IShipVisitor
