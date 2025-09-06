@@ -1,0 +1,10 @@
+{
+  "format_version": "1.21.6",
+  "credit": "Made with Blockbench",
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 1, 16]
+    }
+  ]
+}

@@ -34,6 +34,11 @@ public class ResourceLocation
     
     public static implicit operator ResourceLocation(string location) => ParseOrThrow(location);
 
+    public override string ToString()
+    {
+        return Namespace+":"+Patch;;
+    }
+
     public static ResourceLocation Parse(string location)
     {
         var split = location.Split(":");

@@ -13,6 +13,12 @@
         <Link>.dockerignore</Link>
       </Content>
       <EmbeddedResource Include="assets\minecraft\models\cube.json" />
+      <EmbeddedResource Include="assets\minecraft\models\flap_bearing.json" />
+      <EmbeddedResource Include="assets\minecraft\models\gyro.json" />
+      <EmbeddedResource Include="assets\minecraft\models\wefaewfqwa.json" />
+      <EmbeddedResource Include="assets\minecraft\models\wing.json" />
+      <EmbeddedResource Include="assets\minecraft\shaders\fragment.glsl" />
+      <EmbeddedResource Include="assets\minecraft\shaders\vertex.glsl" />
       <EmbeddedResource Include="Shaders\**\*.*" />
       <EmbeddedResource Include="Models\**\*.*" />
     </ItemGroup>
@@ -24,6 +30,7 @@
       <PackageReference Include="OpenTK" Version="5.0.0-pre.14" />
       <PackageReference Include="OpenTK.Platform" Version="5.0.0-pre.14" />
       <PackageReference Include="Sharp3D.Math" Version="1.0.3" />
+      <PackageReference Include="System.Runtime.Caching" Version="10.0.0-preview.7.25380.108" />
     </ItemGroup>
 
 </Project>

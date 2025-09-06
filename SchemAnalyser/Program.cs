@@ -78,6 +78,22 @@ namespace SchemAnalyser
                 return materials;
             });
             
+            mapper.Put("create:copycat", compound =>
+            {
+                List<BlockState> materials = [];
+
+                if (compound.ContainsKey("Material"))
+                {
+                    var state = MaterialUtils.GetBlockState(compound["Material"].AsTagCompound());
+                    if (state.Name != "create:copycat_base")
+                    {
+                        materials.Add(state);
+                    }
+                }
+                
+                return materials;
+            });
+            
             mapper.Put("copycats:copycat_sliding_door", compound =>
             {
                 List<BlockState> materials = [];
@@ -151,20 +167,21 @@ namespace SchemAnalyser
             );
             Console.WriteLine($"Score: {score}");
             
-            using Game wit = new Game();
+            using Game wit = new Game(rm);
             wit.Load += () =>
             {
-                var cube = new Model([
-                    0,1,2,2,3,0,  4,5,6,6,7,4,
-                    0,1,5,5,4,0,  2,3,7,7,6,2,
-                    0,3,7,7,4,0,  1,2,6,6,5,1
-                ], [
-                    -0.5f,-0.5f,-0.5f,  0.5f,-0.5f,-0.5f,  0.5f,0.5f,-0.5f, -0.5f,0.5f,-0.5f,
-                    -0.5f,-0.5f,0.5f,   0.5f,-0.5f,0.5f,   0.5f,0.5f,0.5f,  -0.5f,0.5f,0.5f
-                ]);
                 
-                var b2 = modelloader.Load(rm.ReadToEndOrThrow(
+                var cube = modelloader.Load(rm.ReadToEndOrThrow(
                     rm["minecraft:models/cube.json"]));
+
+
+                ResourceLocation loc = "minecraft:models/cube.json";
+
+                loc = loc + "abc";
+                loc = loc - "def"; 
+                
+                Console.WriteLine(cube);
+                
 
 
                 //for (int x = -128; x < 128; x++)
@@ -197,10 +214,11 @@ namespace SchemAnalyser
                     
                     foreach (var blockEntry in grid.Blocks)
                     {
+                        var blockstate = schematic.BlockPallete[blockEntry.pid];
                         wit.objects.Add(new GObject(
                             center - new Vector3(blockEntry.x, blockEntry.y, blockEntry.z), 
-                            b2, 
-                            TextToColor(schematic.BlockPallete[blockEntry.pid].Name)
+                            modelloader.Load(ResourceLocation.ParseOrThrow(blockstate.Name)), 
+                            TextToColor(blockstate.Name)
                             ));
                     }
                 }
@@ -298,11 +316,12 @@ namespace SchemAnalyser
 
                 foreach (var entry in compound["BlockList"].AsTagList<TagCompound>())
                 {
+                    Console.WriteLine("B");
                     var state = materials[entry["State"].AsInt()];
                     if (entry.ContainsKey("Data"))
                     {
+                        Console.WriteLine("A");
                         VisitBlock(null, state, entry["Data"].AsTagCompound());
-                        return;
                     }
 
                     Increment(state.Name);

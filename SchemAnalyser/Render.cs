@@ -1,15 +1,17 @@
+using System.Net;
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Runtime.Caching;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.Common;
 using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using SchemAnalyser;
+using SchemAnalyser.Gl;
 using JsonSerializer = Newtonsoft.Json.JsonSerializer;
+using ResourceLocation = SchemAnalyser.ResourceLocation;
+using StringReader = System.IO.StringReader;
 
 namespace Render;
 
@@ -24,7 +26,7 @@ public class GObject
     {
         this.position = position;
         this.model = model;
-        this.rotation = Quaternion.Identity;
+        rotation = Quaternion.Identity;
         this.color = color;
     }
 }
@@ -58,13 +60,13 @@ public class Model
     }
 }
 
-class JsonModelElement
+public class JsonModelElement
 {
     public float[] from;
     public float[] to;
 }
 
-class JsonModel
+public class JsonModel
 {
     public List<JsonModelElement> elements;
 }
@@ -72,9 +74,27 @@ class JsonModel
 public class ModelLoader
 {
     private IResourceMannager resourceMannager;
+    public Dictionary<ResourceLocation, Model> Cache;
+    public ResourceLocation Cube = ResourceLocation.ParseOrThrow("minecraft:cube")
+        .StartPrefix("models/")
+        .EndPrefix(".json");
     public ModelLoader(IResourceMannager resourceMannager)
     {
         this.resourceMannager = resourceMannager;
+        Cache = new Dictionary<ResourceLocation, Model>();
+    }
+        
+    public Model Load(ResourceLocation location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        if (Cache.ContainsKey(location))
+        {
+            return Cache[location];
+        }
+        return Cache[location] = Load(resourceMannager.ReadToEndOrThrow(resourceMannager[location
+            .StartPrefix("models/")
+            .EndPrefix(".json")
+        ] ?? resourceMannager.GetResourceOrThrow(Cube)));
     }
 
     public Model Load(string text)
@@ -122,13 +142,14 @@ public class ModelLoader
 public class Game : GameWindow
 {
     private Shader _shader;
-    public Game()
+    public Game(IResourceMannager resourceMannager)
         : base(GameWindowSettings.Default, new NativeWindowSettings()
         {
             
             Size = new Vector2i(800, 600), Title = "Schematic Render", Flags = ContextFlags.Default, Vsync = VSyncMode.On
         })
     {
+        this.resourceMannager = resourceMannager;
         Resize += OnResize;
     }
     private static void OnResize(ResizeEventArgs e)
@@ -151,6 +172,7 @@ public class Game : GameWindow
     private bool _firstMouse = true;
 
     public List<GObject> objects = [];
+    private IResourceMannager resourceMannager;
     
     private void UpdateCameraVectors()
     {
@@ -179,7 +201,7 @@ public class Game : GameWindow
     {
         GL.Enable(EnableCap.DepthTest);
         
-        _shader = new Shader(LoadResource("SchemAnalyser.Shaders.vertex.glsl"), LoadResource("SchemAnalyser.Shaders.fragment.glsl"));
+        _shader = new Shader(resourceMannager.ReadToEndOrThrow(resourceMannager["minecraft:shaders/vertex.glsl"]), resourceMannager.ReadToEndOrThrow(resourceMannager["minecraft:shaders/fragment.glsl"]), resourceMannager);
         
         CursorState = CursorState.Grabbed;
         base.OnLoad();
@@ -208,8 +230,8 @@ public class Game : GameWindow
             _firstMouse = false;
         }
 
-        float xOffset = mouse.X - _lastMousePos.X;
-        float yOffset = _lastMousePos.Y - mouse.Y;
+        var xOffset = mouse.X - _lastMousePos.X;
+        var yOffset = _lastMousePos.Y - mouse.Y;
         _lastMousePos = mouse;
 
         xOffset *= _sensitivity;
@@ -238,7 +260,7 @@ public class Game : GameWindow
         base.OnUpdateFrame(args);
     }
 
-    private double _time_line = 0;
+    private float _time_line = 0;
     
     
 
@@ -266,21 +288,23 @@ public class Game : GameWindow
         _shader.SetVector3("cam", _cameraPos);
         
         _angle += 50f * (float)args.Time;
-        _time_line += args.Time;
+        _time_line += 50f * (float)args.Time;
+        if (_time_line > float.MaxValue)
+            _time_line -= float.MaxValue;
         
         var loc = GL.GetUniformLocation(_shader.Handle, "model");
         var world_position = GL.GetUniformLocation(_shader.Handle, "world_position");
         var color = GL.GetUniformLocation(_shader.Handle, "color");
         var time_line = GL.GetUniformLocation(_shader.Handle, "time_line");
         
-        GL.Uniform1d(time_line, _time_line);
+        GL.Uniform1f(time_line, _time_line);
 
         Model model = null;
         Matrix4 mat = Matrix4.Zero;
         
         foreach (var obj in objects)
         {
-            var objectMatrix = Matrix4.CreateTranslation(obj.position);
+            var objectMatrix = Matrix4.CreateTranslation(0, 0, 0);
             GL.UniformMatrix4f(loc, 1, false, ref objectMatrix);
             GL.Uniform3f(world_position, 1, ref obj.position);
             GL.Uniform3f(color, 1, ref obj.color);
@@ -303,14 +327,17 @@ public class Game : GameWindow
 class Shader
 {
     public int Handle;
-    public Shader(string vertex, string fragment)
+    public Shader(string vertex, string fragment, IResourceMannager resourceMannager)
     {
+
+        var pre = new Preprocessor(resourceMannager);
+        
         var v = GL.CreateShader(ShaderType.VertexShader);
-        GL.ShaderSource(v, vertex);
+        GL.ShaderSource(v, pre.Process(vertex));
         GL.CompileShader(v);
 
         var f = GL.CreateShader(ShaderType.FragmentShader);
-        GL.ShaderSource(f, fragment);
+        GL.ShaderSource(f, pre.Process(fragment));
         GL.CompileShader(f);
         
         
